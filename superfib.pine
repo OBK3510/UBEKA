@@ -1,0 +1,123 @@
+//@version=6
+indicator("SuperFib", "Superfib", overlay=true)
+
+// Price levels from repeated_values analysis
+// Last updated: 2025-04-28 09:23:57
+// All 49 levels from file: repeated_values_20250428_092057.txt
+var prices = array.from(20409.5, 20763.62, 22294.25, 21894.5, 21614.25, 21557.75, 21443.0, 21282.5, 21267.75, 21209.25, 21183.5, 21064.5, 21026.75, 20976.0, 20918.0, 20811.5, 20710.0, 20685.5, 20684.5, 20477.0, 20357.38, 20273.25, 20217.5, 19996.5, 19914.5, 19826.75, 19814.5, 19751.75, 19707.25, 19694.25, 19692.5, 19691.0, 19664.75, 19519.62, 19418.0, 19369.25, 19320.0, 19293.5, 19261.25, 19197.62, 19150.5, 19066.75, 18991.0, 18920.25, 18897.0, 18314.5, 18175.5, 17991.0, 17906.25)  // Auto-generated price levels
+var texts = array.from("5X", "4X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X", "3X")  // Frequency labels
+
+// Appearance Settings
+var lineColor_5X = input.color(color.new(color.purple, 0), "5X Line Color")
+var lineColor_4X = input.color(color.new(color.red, 0), "4X Line Color")
+var lineColor_3X = input.color(color.new(color.blue, 0), "3X Line Color")
+var lineColor_2X = input.color(color.new(color.green, 0), "2X Line Color")
+var lineWidth_5X = input.int(3, "5X Line Width", minval=1, maxval=4)
+var lineWidth_4X = input.int(2, "4X Line Width", minval=1, maxval=4)
+var lineWidth_3X = input.int(2, "3X Line Width", minval=1, maxval=4)
+var lineWidth_2X = input.int(1, "2X Line Width", minval=1, maxval=4)
+var labelTxtColor = input.color(color.white, "Text Color")
+var labelBgColor_5X = input.color(color.new(color.purple, 30), "5X Background Color")
+var labelBgColor_4X = input.color(color.new(color.red, 30), "4X Background Color")
+var labelBgColor_3X = input.color(color.new(color.blue, 30), "3X Background Color")
+var labelBgColor_2X = input.color(color.new(color.green, 30), "2X Background Color")
+var labelSize = input.string("Normal", "Size", options=["Tiny", "Small", "Normal", "Large", "Huge"])
+var labelAlign = input.string("Right", "Position", options=["Left", "Right"])
+
+// Settings to control how many levels to display - total limited to 100 for TradingView compatibility
+var maxLevels = input.int(100, "Maximum Total Levels to Display", minval=1, maxval=100)
+var priceRangeFilter = input.bool(true, "Filter Levels by Visible Price Range")
+var priceRangeBuffer = input.float(10.0, "Price Range Buffer (%)", minval=0.0, maxval=100.0)
+
+// Helper Functions
+getLabelSize(str) =>
+    switch str
+        "Tiny" => size.tiny
+        "Small" => size.small
+        "Normal" => size.normal
+        "Large" => size.large
+        "Huge" => size.huge
+        => size.normal
+
+getLabelStyle(str) =>
+    switch str
+        "Left" => label.style_label_left
+        "Right" => label.style_label_right
+        => label.style_label_right
+
+getLineColor(txt) =>
+    switch txt
+        "5X" => lineColor_5X
+        "4X" => lineColor_4X
+        "3X" => lineColor_3X
+        "2X" => lineColor_2X
+        => lineColor_2X
+
+getLineWidth(txt) =>
+    switch txt
+        "5X" => lineWidth_5X
+        "4X" => lineWidth_4X
+        "3X" => lineWidth_3X
+        "2X" => lineWidth_2X
+        => lineWidth_2X
+
+getLabelBgColor(txt) =>
+    switch txt
+        "5X" => labelBgColor_5X
+        "4X" => labelBgColor_4X
+        "3X" => labelBgColor_3X
+        "2X" => labelBgColor_2X
+        => labelBgColor_2X
+
+// Check if price is within the visible chart range (with buffer)
+isPriceInVisibleRange(price) =>
+    if priceRangeFilter
+        visibleHigh = high[0]
+        visibleLow = low[0]
+        // Find visible high/low in recent bars
+        for i = 0 to 20
+            visibleHigh := math.max(visibleHigh, high[i])
+            visibleLow := math.min(visibleLow, low[i])
+        
+        // Add buffer percentage 
+        buffer = (visibleHigh - visibleLow) * priceRangeBuffer / 100
+        bufferHigh = visibleHigh + buffer
+        bufferLow = visibleLow - buffer
+        
+        // Return true if price is within buffered range
+        price <= bufferHigh and price >= bufferLow
+    else
+        true  // If filter is disabled, show all levels
+
+// Main logic
+if barstate.islast
+    count = 0
+    
+    // Draw price levels
+    for i = 0 to math.min(array.size(prices) - 1, array.size(texts) - 1)
+        if count >= maxLevels
+            break
+            
+        price = array.get(prices, i)
+        
+        // Only draw if price is in visible range
+        if isPriceInVisibleRange(price)
+            labelText = array.get(texts, i) 
+            
+            // Draw horizontal line
+            line.new(bar_index - 1, price, bar_index, price, 
+                     color=getLineColor(labelText), 
+                     width=getLineWidth(labelText),  
+                     extend=extend.both)
+            
+            // Create label
+            label.new(bar_index, price, labelText,
+                     xloc=xloc.bar_index, 
+                     yloc=yloc.price,
+                     color=getLabelBgColor(labelText),
+                     textcolor=labelTxtColor,
+                     size=getLabelSize(labelSize),
+                     style=getLabelStyle(labelAlign),
+                     tooltip=labelText + " Repeated Level: " + str.tostring(price))
+            
+            count += 1
